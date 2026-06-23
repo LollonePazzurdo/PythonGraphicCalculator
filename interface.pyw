@@ -136,11 +136,7 @@ class App(customtkinter.CTk):
         try:
             g.draw_plots(plots)
             self.draw_button.configure(state=customtkinter.NORMAL)
-            g.save()
-            
-            if img_thread and img_thread.is_alive():
-                ... #to implement a way to kill the img_thread
-            
+            g.save()        
             g.show()
         except:
             self.draw_button.configure(state=customtkinter.NORMAL)

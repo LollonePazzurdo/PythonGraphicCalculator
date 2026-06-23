@@ -107,9 +107,10 @@ class Plot:
             lineType=cv2.QT_FONT_BOLD)
         
 
-    def show(self, waitKey:bool = True):
+    def show(self):
         cv2.imshow("by Lollo's Graphics", self.img)
-        cv2.waitKey(int(not waitKey))
+        while True:
+            cv2.waitKey(1)
     
 
     def save(self, filename:str="img.png"):
@@ -132,8 +133,6 @@ class Graph:
         self.dark_mode = dark_mode
         self.center = center
         self.default_color = int(dark_mode)*255, int(dark_mode)*255, int(dark_mode)*255
-        self.close_png = False
-        
 
         self.img = np.zeros((self.side,self.side,3), np.uint8)
         if dark_mode:
@@ -229,14 +228,11 @@ class Graph:
                     self.set_color(x,y, color)
     
 
-    def show(self, waitKey:bool = True):
+    def show(self):
         img_tmp = cv2.resize(self.img, (self.side*self.scale, self.side*self.scale), interpolation = cv2.INTER_AREA)
         cv2.imshow("by Lollo's Graphics", img_tmp)
         while True:
-            if cv2.getWindowProperty("by Lollo's Graphics", cv2.WND_PROP_VISIBLE) < 1:
-                break
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+            cv2.waitKey(1)
 
     
     def save(self, filename:str = "img.png"):
