@@ -132,6 +132,7 @@ class Graph:
         self.dark_mode = dark_mode
         self.center = center
         self.default_color = int(dark_mode)*255, int(dark_mode)*255, int(dark_mode)*255
+        self.close_png = False
         
 
         self.img = np.zeros((self.side,self.side,3), np.uint8)
@@ -231,7 +232,11 @@ class Graph:
     def show(self, waitKey:bool = True):
         img_tmp = cv2.resize(self.img, (self.side*self.scale, self.side*self.scale), interpolation = cv2.INTER_AREA)
         cv2.imshow("by Lollo's Graphics", img_tmp)
-        cv2.waitKey(int(not waitKey))
+        while True:
+            if cv2.getWindowProperty("by Lollo's Graphics", cv2.WND_PROP_VISIBLE) < 1:
+                break
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
 
     
     def save(self, filename:str = "img.png"):
