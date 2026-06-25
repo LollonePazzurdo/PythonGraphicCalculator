@@ -245,6 +245,8 @@ def draw_process(equation:str, color:tuple[int,int,int], size:int, zoom:float, d
     p.draw()
     if write_text:
         p.draw_text(i=i)
+    if os.path.exists("plots") == False:
+        os.mkdir("plots")
     p.save(f"plots/{i}.png")
 
 
