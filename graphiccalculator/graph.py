@@ -67,12 +67,12 @@ class Plot:
                 except (ZeroDivisionError, ValueError, TypeError):
                     signs[x+self.size+1, y+self.size+1] = 10
 
-        self.time0 = time.perf_counter()
+        #self.time0 = time.perf_counter()
         for x in range(-self.size, self.size+1):
             for y in range(-self.size, self.size+1):
                 try:
                     defined = domain(x/self.zoom + self.center[0], y/self.zoom + self.center[1])
-                except:
+                except (ZeroDivisionError, ValueError, TypeError):
                     defined = False
                     
                 if defined:

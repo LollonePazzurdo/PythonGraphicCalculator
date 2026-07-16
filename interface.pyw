@@ -138,9 +138,9 @@ class App(customtkinter.CTk):
             self.draw_button.configure(state=customtkinter.NORMAL)
             g.save()        
             g.show()
-        except:
+        except Exception as e:
             self.draw_button.configure(state=customtkinter.NORMAL)
-            print("Error drawing the plots")   
+            print(f"Error drawing the plots: {e}")   
         
         
 
