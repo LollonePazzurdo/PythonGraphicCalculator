@@ -6,7 +6,7 @@ import time
 import multiprocessing
 import os
 
-
+PLOTS_DIR = "plots"
 
 class Plot:
     subs_dict = {"^":"**", "X":"x", "Y":"y", "PI":"pi"}
@@ -144,7 +144,9 @@ class Graph:
             for i in range(-size, size+1):
                 self.set_color(-self.center[0]*self.zoom, i, GRAY)
                 self.set_color(i, -self.center[1]*self.zoom, GRAY)
-            
+        
+        if not os.path.exists(PLOTS_DIR):
+            os.mkdir(PLOTS_DIR)
 
     def __repr__(self)->str:
         return f"scale = {self.scale}\nsize = {self.size}\nside = {self.side}\nzoom = {self.zoom}\ndark_mode = {self.dark_mode}\ncenter = {self.center}"
@@ -185,8 +187,8 @@ class Graph:
 
 
     def draw_plots(self, plots:list[Plot], write_text:bool=True):
-        for file in os.listdir("plots"):
-            os.remove("plots/"+file)
+        for file in os.listdir(PLOTS_DIR):
+            os.remove(os.path.join(PLOTS_DIR, file))
 
         for i,p in enumerate(plots):
             process = multiprocessing.Process(target=draw_process, args=(p.equation, p.color, p.size, p.zoom, p.domain, i, write_text, self.center))
@@ -196,7 +198,7 @@ class Graph:
         while len(multiprocessing.active_children())!=0: pass
         
         for i,p in enumerate(plots):
-            p.img = cv2.imread(f"plots/{i}.png", cv2.IMREAD_UNCHANGED)
+            p.img = cv2.imread(os.path.join(PLOTS_DIR, f"{i}.png"), cv2.IMREAD_UNCHANGED)
             self.overlay_plot(p)
 
     
@@ -245,9 +247,7 @@ def draw_process(equation:str, color:tuple[int,int,int], size:int, zoom:float, d
     p.draw()
     if write_text:
         p.draw_text(i=i)
-    if os.path.exists("plots") == False:
-        os.mkdir("plots")
-    p.save(f"plots/{i}.png")
+    p.save(os.path.join(PLOTS_DIR, f"{i}.png"))
 
 
 def fix_text(text:str):
