@@ -2,8 +2,8 @@ import numpy as np
 from math import *
 import cv2
 from .colors import *
-import time
 import multiprocessing
+import threading
 import os
 
 PLOTS_DIR = "plots"
@@ -23,13 +23,17 @@ class Plot:
         self.center = center
         self.equation = equation
 
-        self.img = np.zeros((self.side,self.side,4), np.uint8)
+        self.reset()
 
 
     def __repr__(self)->str:
         return f"equation = \"{self.equation}\"\ncolor = {self.color}\nsize = {self.size}\nzoom = {self.zoom}\ncenter = {self.center}"
     
+    
+    def reset(self):
+        self.img = np.zeros((self.side,self.side,4), np.uint8)
 
+    
     def set_color(self, x:float, y:float, color:tuple):
         if len(color) == 3:
             color = (color[0], color[1], color[2], 255)
