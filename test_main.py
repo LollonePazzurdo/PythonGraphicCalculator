@@ -1,4 +1,5 @@
 import threading
+import time
 
 from graphiccalculator import *
 

@@ -40,7 +40,7 @@ class Plot:
         self.img[self.to_coords(x,y)] = color
         
 
-    def draw(self):
+    def draw(self, index:int=None): # index = None means write_text = False
         print(f"Drawing {self.equation}")
         equation, domain = self.equation, self.domain
         final_color = (self.color[0], self.color[1], self.color[2], self.line_alpha)
@@ -88,12 +88,15 @@ class Plot:
 
                     if abs(s)<3:
                         self.set_color(x,y, final_color)
+    
+        if index!=None:
+            self.draw_text(index=index)
 
 
-    def draw_text(self, i:int=1):
+    def draw_text(self, index:int=1):
 
         font_size = .7*self.size/400
-        self.text_offset += (font_size*25+15)*(i+1)*self.size/400
+        self.text_offset += (font_size*25+15)*(index+1)*self.size/400
         b,g,r = self.color
         
         text = self.equation
@@ -202,9 +205,10 @@ class Graph:
 
         processes = []
         for i,p in enumerate(plots):
-            processes.append(multiprocessing.Process(target=draw_process, args=(p.equation, p.color, p.size, p.zoom, p.domain, i, write_text, self.center)))
+            process = multiprocessing.Process(target=draw_process, args=(p.equation, p.color, p.size, p.zoom, p.domain, i, write_text, self.center))
             while len(multiprocessing.active_children()) > multiprocessing.cpu_count(): pass #so the pc wont be overloaded with processes
-            processes[i].start()
+            process.start()
+            processes.append(process)
 
         for p in processes:
             p.join()
@@ -212,6 +216,23 @@ class Graph:
         for i,p in enumerate(plots):
             p.img = cv2.imread(os.path.join(PLOTS_DIR, f"{i}.png"), cv2.IMREAD_UNCHANGED)
             self.overlay_plot(p)
+            
+            
+    def draw_plots_mt(self, plots:list[Plot], write_text:bool=True):
+        for file in os.listdir(PLOTS_DIR):
+            os.remove(os.path.join(PLOTS_DIR, file))
+
+        threads = []
+        for i,p in enumerate(plots):
+            thread = threading.Thread(target=p.draw, args=(i) if write_text else ())
+            thread.start()
+            threads.append(thread)
+
+        for t in threads:
+            t.join()
+        
+        for p in plots:
+            self.overlay_plot(p.img)
 
     
     def overlay_plot(self, plot:Plot):
@@ -254,12 +275,10 @@ class Graph:
 
 
 
-def draw_process(equation:str, color:tuple[int,int,int], size:int, zoom:float, domain:str, i:int, write_text:bool, center:tuple[float,float]):
+def draw_process(equation:str, color:tuple[int,int,int], size:int, zoom:float, domain:str, index:int, write_text:bool, center:tuple[float,float]):
     p = Plot(equation=equation, color=color, size=size, zoom=zoom, domain=domain, center=center)
-    p.draw()
-    if write_text:
-        p.draw_text(i=i)
-    p.save(os.path.join(PLOTS_DIR, f"{i}.png"))
+    p.draw(index=index) if write_text else p.draw()
+    p.save(os.path.join(PLOTS_DIR, f"{index}.png"))
 
 
 def fix_text(text:str):
