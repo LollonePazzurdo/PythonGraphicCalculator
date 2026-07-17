@@ -199,7 +199,7 @@ class Graph:
         processes = []
         for i,p in enumerate(plots):
             processes.append(multiprocessing.Process(target=draw_process, args=(p.equation, p.color, p.size, p.zoom, p.domain, i, write_text, self.center)))
-            while len(multiprocessing.active_children()) > multiprocessing.cpu_count(): pass #let's don't make the pc crush (●'◡'●)
+            while len(multiprocessing.active_children()) > multiprocessing.cpu_count(): pass #so the pc wont be overloaded with processes
             processes[i].start()
 
         for p in processes:
