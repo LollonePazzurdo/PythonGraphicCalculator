@@ -134,7 +134,7 @@ class App(customtkinter.CTk):
     
     def draw_thread(self, g:Graph, plots:list[Plot]):
         try:
-            g.draw_plots_mp(plots)
+            g.draw_plots_mt(plots)
             self.draw_button.configure(state=customtkinter.NORMAL)
             g.save()
             g.show()

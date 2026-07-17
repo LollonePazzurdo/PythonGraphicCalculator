@@ -28,7 +28,7 @@ def draw_multiprocessing_test(g: Graph, eqs:list[str]):
 
 scale = 1
 g = Graph(
-    view=2, 
+    view=10, 
     size=400//scale,
     axes=True, 
     scale=scale, 
@@ -42,6 +42,34 @@ eqs = [
     "y=-cos(x)",
     "x=cos(y)",
     "x=-cos(y)",
+    "y=x",
+    "y=-x",
+    "y=x^2",
+    "y=-x^2",
+    "y=sin(x)",
+    "y=-sin(x)",
+    "y=tan(x)",
+    "y=-tan(x)",
+    "y=sin(x)+cos(x)",
+    "y=sin(x)-cos(x)",
+    "y=abs(x)",
+    "y=-abs(x)",
+    "y=sqrt(abs(x))",
+    "y=-sqrt(abs(x))",
+    "y=exp(x)",
+    "y=-exp(x)",
+    "y=log(abs(x)+1)",
+    "y=-log(abs(x)+1)",
+    "y=x^3",
+    "y=-x^3",
+    "x=y^2",
+    "x=-y^2",
+    "y=1/x",
+    "y=-1/x",
+    "y=2*x+1",
+    "y=-2*x+1",
+    "y=sin(x^2)",
+    "y=cos(x^2)",
 ]
 
 if __name__ == "__main__":

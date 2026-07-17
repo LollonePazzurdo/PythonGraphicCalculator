@@ -41,7 +41,7 @@ class Plot:
         
 
     def draw(self, index:int=None): # index = None means write_text = False
-        print(f"Drawing {self.equation}")
+        print(f"Drawing {self.equation}\n", end="") #to fix late newline during multithreading
         equation, domain = self.equation, self.domain
         final_color = (self.color[0], self.color[1], self.color[2], self.line_alpha)
         
