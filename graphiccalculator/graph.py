@@ -224,7 +224,7 @@ class Graph:
 
         threads = []
         for i,p in enumerate(plots):
-            thread = threading.Thread(target=p.draw, args=(i) if write_text else ())
+            thread = threading.Thread(target=p.draw, args=(i,) if write_text else ())
             thread.start()
             threads.append(thread)
 
@@ -232,7 +232,7 @@ class Graph:
             t.join()
         
         for p in plots:
-            self.overlay_plot(p.img)
+            self.overlay_plot(p)
 
     
     def overlay_plot(self, plot:Plot):
