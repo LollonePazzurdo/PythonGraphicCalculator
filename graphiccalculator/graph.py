@@ -133,24 +133,30 @@ class Graph:
         self.dark_mode = dark_mode
         self.center = center
         self.default_color = int(dark_mode)*255, int(dark_mode)*255, int(dark_mode)*255
-
-        self.img = np.zeros((self.side,self.side,3), np.uint8)
-        if dark_mode:
-            self.img.fill(25)
-        else:
-            self.img.fill(255)
-
-        if axes:
-            for i in range(-size, size+1):
-                self.set_color(-self.center[0]*self.zoom, i, GRAY)
-                self.set_color(i, -self.center[1]*self.zoom, GRAY)
+        self.axes = axes
+        
+        self.reset()
         
         if not os.path.exists(PLOTS_DIR):
             os.mkdir(PLOTS_DIR)
 
+
     def __repr__(self)->str:
         return f"scale = {self.scale}\nsize = {self.size}\nside = {self.side}\nzoom = {self.zoom}\ndark_mode = {self.dark_mode}\ncenter = {self.center}"
 
+
+    def reset(self):
+        self.img = np.zeros((self.side,self.side,3), np.uint8)
+        if self.dark_mode:
+            self.img.fill(25)
+        else:
+            self.img.fill(255)
+
+        if self.axes:
+            for i in range(-self.size, self.size+1):
+                self.set_color(-self.center[0]*self.zoom, i, GRAY)
+                self.set_color(i, -self.center[1]*self.zoom, GRAY)
+    
 
     def to_coords(self,x:float, y:float)->tuple:
         i = -y+self.side//2
@@ -190,12 +196,14 @@ class Graph:
         for file in os.listdir(PLOTS_DIR):
             os.remove(os.path.join(PLOTS_DIR, file))
 
+        processes = []
         for i,p in enumerate(plots):
-            process = multiprocessing.Process(target=draw_process, args=(p.equation, p.color, p.size, p.zoom, p.domain, i, write_text, self.center))
+            processes.append(multiprocessing.Process(target=draw_process, args=(p.equation, p.color, p.size, p.zoom, p.domain, i, write_text, self.center)))
             while len(multiprocessing.active_children()) > multiprocessing.cpu_count(): pass #let's don't make the pc crush (●'◡'●)
-            process.start()
+            processes[i].start()
 
-        while len(multiprocessing.active_children())!=0: pass
+        for p in processes:
+            p.join()
         
         for i,p in enumerate(plots):
             p.img = cv2.imread(os.path.join(PLOTS_DIR, f"{i}.png"), cv2.IMREAD_UNCHANGED)
