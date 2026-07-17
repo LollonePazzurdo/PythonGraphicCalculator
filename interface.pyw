@@ -128,15 +128,15 @@ class App(customtkinter.CTk):
         
         plots = g.get_plots(equations=texts, colors=colors, domains=domains)
 
-        self.img_thread = threading.Thread(target=self.draw_thread, args=(g, plots, self.img_thread))
+        self.img_thread = threading.Thread(target=self.draw_thread, args=(g, plots))
         self.img_thread.start()
          
     
-    def draw_thread(self, g:Graph, plots:list[Plot], img_thread:threading.Thread):
+    def draw_thread(self, g:Graph, plots:list[Plot]):
         try:
             g.draw_plots(plots)
             self.draw_button.configure(state=customtkinter.NORMAL)
-            g.save()        
+            g.save()
             g.show()
         except Exception as e:
             self.draw_button.configure(state=customtkinter.NORMAL)
