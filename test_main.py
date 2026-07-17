@@ -28,7 +28,7 @@ def draw_multithreading_test(g: Graph, eqs:list[str]):
 def draw_multiprocessing_test(g: Graph, eqs:list[str]):
     t0 = time.perf_counter()
     plots = g.get_plots(equations=eqs, colors=[colors.r_color() for _ in range(len(eqs))])
-    g.draw_plots(plots)
+    g.draw_plots_mp(plots)
     return time.perf_counter()-t0
 
 

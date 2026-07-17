@@ -192,7 +192,7 @@ class Graph:
         return plots
 
 
-    def draw_plots(self, plots:list[Plot], write_text:bool=True):
+    def draw_plots_mp(self, plots:list[Plot], write_text:bool=True):
         for file in os.listdir(PLOTS_DIR):
             os.remove(os.path.join(PLOTS_DIR, file))
 
