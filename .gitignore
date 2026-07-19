@@ -105,6 +105,14 @@ cython_debug/
 Thumbs.db
 ehthumbs.db
 
+# Virtual environments
+.venv/
+venv/
+.venv_old/
+env/
+.env/
+
 # plots and generated images
 plots/
 *.png
+
