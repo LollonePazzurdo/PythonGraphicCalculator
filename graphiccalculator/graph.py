@@ -1,10 +1,11 @@
 import numpy as np
 from math import *
-import cv2
+from PIL import Image, ImageDraw, ImageFont
 from .colors import *
 import multiprocessing
 import threading
 import os
+from concurrent.futures import ThreadPoolExecutor
 
 PLOTS_DIR = "plots"
 
@@ -58,36 +59,53 @@ class Plot:
         equation = fix_text(equation)
         domain = fix_text(domain)
             
+        coords_x = np.arange(-self.size - 1, self.size + 2, dtype=np.float64) / self.zoom + self.center[0]
+        coords_y = np.arange(-self.size - 1, self.size + 2, dtype=np.float64) / self.zoom + self.center[1]
+        X, Y = np.meshgrid(coords_x, coords_y, indexing='ij')
 
-        function = eval("lambda x,y: "+equation)
-        domain = eval("lambda x,y: "+domain)
+        eval_env = {
+            "x": X, "y": Y,
+            "sin": np.sin, "cos": np.cos, "tan": np.tan,
+            "asin": np.arcsin, "acos": np.arccos, "atan": np.arctan,
+            "sinh": np.sinh, "cosh": np.cosh, "tanh": np.tanh,
+            "exp": np.exp, "log": np.log, "log10": np.log10,
+            "abs": np.abs, "sqrt": np.sqrt,
+            "pi": np.pi, "e": np.e
+        }
 
-        signs = np.zeros((self.side+2, self.side+2))
+        with np.errstate(all='ignore'):
+            try:
+                Z = eval(equation, {"__builtins__": None}, eval_env)
+                if isinstance(Z, (int, float)):
+                    Z = np.full(X.shape, Z, dtype=np.float64)
+                signs = np.sign(Z)
+                signs[~np.isfinite(Z)] = 10.0
+            except Exception:
+                signs = np.full(X.shape, 10.0)
 
-        for x in range(-self.size-1, self.size+2):
-            for y in range(-self.size-1, self.size+2):
-                try:
-                    signs[x+self.size+1, y+self.size+1] = np.sign(function(x/self.zoom + self.center[0], y/self.zoom + self.center[1]))
-                except (ZeroDivisionError, ValueError, TypeError):
-                    signs[x+self.size+1, y+self.size+1] = 10
+            try:
+                D = eval(domain, {"__builtins__": None}, eval_env)
+                if isinstance(D, bool):
+                    D = np.full(X.shape, D, dtype=bool)
+                elif isinstance(D, (int, float)):
+                    D = np.full(X.shape, bool(D), dtype=bool)
+                else:
+                    D = D.astype(bool)
+            except Exception:
+                D = np.zeros(X.shape, dtype=bool)
 
-        #self.time0 = time.perf_counter()
-        for x in range(-self.size, self.size+1):
-            for y in range(-self.size, self.size+1):
-                try:
-                    defined = domain(x/self.zoom + self.center[0], y/self.zoom + self.center[1])
-                except (ZeroDivisionError, ValueError, TypeError):
-                    defined = False
-                    
-                if defined:
-                    right = signs[x+self.size+2, y+self.size+1]
-                    left = signs[x+self.size, y+self.size+1]
-                    top = signs[x+self.size+1, y+self.size+2]
-                    bottom =  signs[x+self.size+1, y+self.size]
-                    s = right + left + top + bottom
+        right = signs[2:, 1:-1]
+        left = signs[:-2, 1:-1]
+        top = signs[1:-1, 2:]
+        bottom = signs[1:-1, :-2]
+        s = right + left + top + bottom
 
-                    if abs(s)<3:
-                        self.set_color(x,y, final_color)
+        defined = D[1:-1, 1:-1]
+        
+        mask = (np.abs(s) < 3) & defined
+        
+        img_mask = mask[:, ::-1].T
+        self.img[img_mask] = final_color
     
         if index!=None:
             self.draw_text(index=index)
@@ -95,33 +113,33 @@ class Plot:
 
     def draw_text(self, index:int=1):
 
-        font_size = .7*self.size/400
-        self.text_offset += (font_size*25+15)*(index+1)*self.size/400
+        font_size = max(12, int(20*self.size/400))
+        self.text_offset += (font_size+5)*(index+1)*self.size/400
         b,g,r = self.color
         
         text = self.equation
         if self.domain!="True":
             text += f" {{{self.domain}}}"
 
-        self.img = cv2.putText(
-            img = self.img,
-            text = text,
-            org = (round(15*self.size/400), round(self.text_offset)),
-            fontFace = cv2.FONT_HERSHEY_DUPLEX,
-            fontScale = font_size,
-            color = (b,g,r,255),
-            thickness = 1,
-            lineType=cv2.QT_FONT_BOLD)
+        pil_img = Image.fromarray(self.img, mode="RGBA")
+        draw = ImageDraw.Draw(pil_img)
+        try:
+            font = ImageFont.truetype("arial.ttf", font_size)
+        except Exception:
+            font = ImageFont.load_default()
+
+        draw.text((round(15*self.size/400), round(self.text_offset)), text, fill=(b,g,r,255), font=font)
+        self.img = np.array(pil_img)
         
 
     def show(self):
-        cv2.imshow("by Lollo's Graphics", self.img)
-        while True:
-            cv2.waitKey(1)
+        pil_img = Image.fromarray(self.img[:, :, [2, 1, 0, 3]], mode="RGBA")
+        pil_img.show(title="by Lollo's Graphics")
     
 
     def save(self, filename:str="img.png"):
-        cv2.imwrite(filename, self.img)
+        pil_img = Image.fromarray(self.img[:, :, [2, 1, 0, 3]], mode="RGBA")
+        pil_img.save(filename)
 
     
     def to_coords(self,x:float, y:float)->tuple:
@@ -214,7 +232,9 @@ class Graph:
             p.join()
         
         for i,p in enumerate(plots):
-            p.img = cv2.imread(os.path.join(PLOTS_DIR, f"{i}.png"), cv2.IMREAD_UNCHANGED)
+            file_path = os.path.join(PLOTS_DIR, f"{i}.png")
+            pil_img = Image.open(file_path).convert("RGBA")
+            p.img = np.array(pil_img)[:, :, [2, 1, 0, 3]]
             self.overlay_plot(p)
             
             
@@ -222,14 +242,17 @@ class Graph:
         for file in os.listdir(PLOTS_DIR):
             os.remove(os.path.join(PLOTS_DIR, file))
 
-        threads = []
-        for i,p in enumerate(plots):
-            thread = threading.Thread(target=p.draw, args=(i,) if write_text else ())
-            thread.start()
-            threads.append(thread)
-
-        for t in threads:
-            t.join()
+        max_workers = os.cpu_count() or 4
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(p.draw, i if write_text else None)
+                for i, p in enumerate(plots)
+            ]
+            for f in futures:
+                try:
+                    f.result()
+                except Exception as e:
+                    print(f"Error drawing plot thread: {e}")
         
         for p in plots:
             self.overlay_plot(p)
@@ -249,7 +272,7 @@ class Graph:
         self.overlay_plot(plot)
 
      
-    def point(self, px, py, color=None,  r=5):
+    def point(self, px, py, color=None, r=5):
         if not color:
             color = self.default_color
 
@@ -264,14 +287,15 @@ class Graph:
     
 
     def show(self):
-        img_tmp = cv2.resize(self.img, (self.side*self.scale, self.side*self.scale), interpolation = cv2.INTER_AREA)
-        cv2.imshow("by Lollo's Graphics", img_tmp)
-        while True:
-            cv2.waitKey(1)
+        pil_img = Image.fromarray(self.img[:, :, ::-1], mode="RGB")
+        if self.scale != 1:
+            pil_img = pil_img.resize((self.side*self.scale, self.side*self.scale), Image.Resampling.BOX)
+        pil_img.show(title="by Lollo's Graphics")
 
     
     def save(self, filename:str = "img.png"):
-        cv2.imwrite(filename, self.img)
+        pil_img = Image.fromarray(self.img[:, :, ::-1], mode="RGB")
+        pil_img.save(filename)
 
 
 

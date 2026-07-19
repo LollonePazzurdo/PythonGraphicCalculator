@@ -74,18 +74,13 @@ eqs = [
 
 if __name__ == "__main__":
     print(f"Sequential time: {draw_sequential_test(g, eqs)}")
-    cv2.imshow("Graph", g.img)
-    cv2.waitKey(0)
+    g.save("sequential.png")
     g.reset()
-
 
     print(f"Multithreding time: {draw_multithreading_test(g, eqs)}")
-    cv2.imshow("Graph", g.img)
-    cv2.waitKey(0)
+    g.save("multithreading.png")
     g.reset()
 
-
     print(f"Multiprocessing time: {draw_multiprocessing_test(g, eqs)}")
-    cv2.imshow("Graph", g.img)
-    cv2.waitKey(0)
+    g.save("multiprocessing.png")
     g.reset()
