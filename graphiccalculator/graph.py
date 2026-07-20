@@ -231,7 +231,8 @@ class Graph:
         for t in threads:
             t.join()
         
-        for p in plots:
+        for i,p in enumerate(plots):
+            p.save(filename = os.path.join(PLOTS_DIR, f"{i}.png")) #optional
             self.overlay_plot(p)
 
     
