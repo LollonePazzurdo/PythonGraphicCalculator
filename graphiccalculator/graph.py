@@ -52,9 +52,11 @@ class Plot:
             self._draw_inequality(equation, domain, index, inequality_match)
         else:
             self._draw_equality(equation, domain, index)
-            
+        
         if write_text:
             self.draw_text(index=index)
+            
+        self.save(os.path.join(PLOTS_DIR, f"{index}{'' if self.draw_text else '_tmp'}.png"))
 
     def _draw_equality(self, equation:str, domain:str, index:int|None):
         final_color = (self.color[0], self.color[1], self.color[2], self.line_alpha)
@@ -107,9 +109,6 @@ class Plot:
 
         self.img[mask[:, ::-1].T] = final_color
 
-
-        if index is not None:
-            self.draw_text(index=index)
 
     def _create_mesh(self):
         coords_x = np.arange(-self.size - 1, self.size + 2, dtype=np.float64) / self.zoom + self.center[0]
