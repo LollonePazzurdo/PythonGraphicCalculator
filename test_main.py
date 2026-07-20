@@ -32,8 +32,16 @@ g = Graph(
 
 
 eqs = [
-    "x>y+2",
-    "x>=-y",
+    "y > sin(x)",
+    "y < cos(x)",
+    "y >= abs(x) - 2",
+    "y <= x**2 - 5",
+    "y > -x**2 + 4",
+    "y < sqrt(abs(x) + 1)",
+    "y >= abs(sin(x)*2)",
+    "y <= 2*cos(x) + 1",
+    "y > exp(-x**2/5)",
+    "y < log(abs(x) + 2.5)",
 ]
 
 if __name__ == "__main__":

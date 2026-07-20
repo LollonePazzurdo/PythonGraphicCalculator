@@ -42,7 +42,7 @@ class Plot:
         self.img[self.to_coords(x,y)] = color
         
 
-    def draw(self, index:int=None): # index = None means write_text = False
+    def draw(self, index:int=None, write_text=True):
         print(f"Drawing {self.equation}\n", end="") #to fix late newline during multithreading
         equation, domain = self.equation, self.domain
     
@@ -52,6 +52,9 @@ class Plot:
             self._draw_inequality(equation, domain, index, inequality_match)
         else:
             self._draw_equality(equation, domain, index)
+            
+        if write_text:
+            self.draw_text(index=index)
 
     def _draw_equality(self, equation:str, domain:str, index:int|None):
         final_color = (self.color[0], self.color[1], self.color[2], self.line_alpha)
@@ -82,8 +85,7 @@ class Plot:
         mask = (np.abs(s) < 3) & defined
 
         self.img[mask[:, ::-1].T] = final_color
-        if index is not None:
-            self.draw_text(index=index)
+
 
     def _draw_inequality(self, equation:str, domain:str, index:int|None, inequality_match):
         final_color = (self.color[0], self.color[1], self.color[2], self.area_alpha)
@@ -105,15 +107,6 @@ class Plot:
 
         self.img[mask[:, ::-1].T] = final_color
 
-        if is_boundary_inequality:
-            boundary_expression = equation.replace(">=", "==").replace("<=", "==")
-            try:
-                boundary_Z = self._eval_expression(boundary_expression, eval_env, X.shape, is_inequality=True)
-                if isinstance(boundary_Z, np.ndarray) and boundary_Z.dtype == bool:
-                    boundary_mask = boundary_Z[1:-1, 1:-1] & defined
-                    self.img[boundary_mask[:, ::-1].T] = (self.color[0], self.color[1], self.color[2], self.line_alpha)
-            except Exception:
-                pass
 
         if index is not None:
             self.draw_text(index=index)
@@ -268,11 +261,19 @@ class Graph:
     def draw_plots_mt(self, plots:list[Plot], write_text:bool=True):
         for file in os.listdir(PLOTS_DIR):
             os.remove(os.path.join(PLOTS_DIR, file))
+        
+        true_plots = plots.copy()
+        for plot in true_plots:
+            if re.search(r">=|<=", plot.equation):
+                new_eq = plot.equation.replace(">", "").replace("<", "")
+                new_plot = Plot(new_eq, plot.color, plot.size, plot.zoom, plot.domain, plot.center)
+                plots.append(new_plot)
+                
 
         max_workers = os.cpu_count() or 4
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [
-                executor.submit(p.draw, i if write_text else None)
+                executor.submit(p.draw, i, i<len(true_plots))
                 for i, p in enumerate(plots)
             ]
             for f in futures:
