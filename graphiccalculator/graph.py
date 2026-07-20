@@ -88,9 +88,17 @@ class Plot:
 
                     if abs(s)<3:
                         self.set_color(x,y, final_color)
-    
+        
+        if ">=" in self.equation or "<=" in self.equation:
+            tmp_eq = self.equation
+            self.equation = self.equation.replace(">", "").replace("<", "")
+            self.draw(index=None)
+            self.equation = tmp_eq
+        
         if index!=None:
             self.draw_text(index=index)
+            
+        
 
 
     def draw_text(self, index:int=1):
