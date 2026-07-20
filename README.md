@@ -6,7 +6,7 @@ A high-performance Python application with a CustomTkinter GUI for rendering 2D 
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/YourUsername/PythonGraphicCalculator.git
+git clone https://github.com/LollonePazzurdo/PythonGraphicCalculator.git
 cd PythonGraphicCalculator
 ```
 
