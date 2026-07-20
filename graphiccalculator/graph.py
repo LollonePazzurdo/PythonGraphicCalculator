@@ -5,6 +5,7 @@ from .colors import *
 import multiprocessing
 import threading
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor
 
 PLOTS_DIR = "plots"
@@ -44,26 +45,86 @@ class Plot:
     def draw(self, index:int=None): # index = None means write_text = False
         print(f"Drawing {self.equation}\n", end="") #to fix late newline during multithreading
         equation, domain = self.equation, self.domain
-        final_color = (self.color[0], self.color[1], self.color[2], self.line_alpha)
-        
-        if ">" in equation or "<" in equation or ">=" in equation or "<=" in equation:
-            equation = f"int(not ({self.equation}))"
-            final_color = (self.color[0], self.color[1], self.color[2], self.area_alpha)
-                
-        elif "=" in equation: 
-            equation = equation.split("=")
-            equation = f"{equation[0]} - ({equation[1]})"
+    
+        inequality_match = re.search(r">=|<=|>|<", equation)
 
-             
-            
+        if inequality_match:
+            self._draw_inequality(equation, domain, index, inequality_match)
+        else:
+            self._draw_equality(equation, domain, index)
+
+    def _draw_equality(self, equation:str, domain:str, index:int|None):
+        final_color = (self.color[0], self.color[1], self.color[2], self.line_alpha)
+        if "==" in equation:
+            left, right = equation.split("==", 1)
+            equation = f"({left}) - ({right})"
+        elif "=" in equation and not any(op in equation for op in ("==", ">=", "<=")):
+            left, right = equation.split("=", 1)
+            equation = f"({left}) - ({right})"
+
         equation = fix_text(equation)
         domain = fix_text(domain)
-            
+        X, Y = self._create_mesh()
+        eval_env = self._build_eval_env(X, Y)
+
+        with np.errstate(all='ignore'):
+            Z = self._eval_expression(equation, eval_env, X.shape, is_inequality=False)
+            signs = np.sign(Z)
+            signs[~np.isfinite(signs)] = 10.0
+            D = self._eval_domain(domain, eval_env, X.shape)
+
+        right = signs[2:, 1:-1]
+        left = signs[:-2, 1:-1]
+        top = signs[1:-1, 2:]
+        bottom = signs[1:-1, :-2]
+        s = right + left + top + bottom
+        defined = D[1:-1, 1:-1]
+        mask = (np.abs(s) < 3) & defined
+
+        self.img[mask[:, ::-1].T] = final_color
+        if index is not None:
+            self.draw_text(index=index)
+
+    def _draw_inequality(self, equation:str, domain:str, index:int|None, inequality_match):
+        final_color = (self.color[0], self.color[1], self.color[2], self.area_alpha)
+        is_boundary_inequality = inequality_match.group() in (">=", "<=")
+        equation = fix_text(f"({equation})")
+        domain = fix_text(domain)
+        X, Y = self._create_mesh()
+        eval_env = self._build_eval_env(X, Y)
+
+        with np.errstate(all='ignore'):
+            Z = self._eval_expression(equation, eval_env, X.shape, is_inequality=True)
+            D = self._eval_domain(domain, eval_env, X.shape)
+
+        defined = D[1:-1, 1:-1]
+        if isinstance(Z, np.ndarray) and Z.dtype == bool:
+            mask = Z[1:-1, 1:-1] & defined
+        else:
+            mask = np.full((self.side-2, self.side-2), bool(Z), dtype=bool) & defined
+
+        self.img[mask[:, ::-1].T] = final_color
+
+        if is_boundary_inequality:
+            boundary_expression = equation.replace(">=", "==").replace("<=", "==")
+            try:
+                boundary_Z = self._eval_expression(boundary_expression, eval_env, X.shape, is_inequality=True)
+                if isinstance(boundary_Z, np.ndarray) and boundary_Z.dtype == bool:
+                    boundary_mask = boundary_Z[1:-1, 1:-1] & defined
+                    self.img[boundary_mask[:, ::-1].T] = (self.color[0], self.color[1], self.color[2], self.line_alpha)
+            except Exception:
+                pass
+
+        if index is not None:
+            self.draw_text(index=index)
+
+    def _create_mesh(self):
         coords_x = np.arange(-self.size - 1, self.size + 2, dtype=np.float64) / self.zoom + self.center[0]
         coords_y = np.arange(-self.size - 1, self.size + 2, dtype=np.float64) / self.zoom + self.center[1]
-        X, Y = np.meshgrid(coords_x, coords_y, indexing='ij')
+        return np.meshgrid(coords_x, coords_y, indexing='ij')
 
-        eval_env = {
+    def _build_eval_env(self, X, Y):
+        return {
             "x": X, "y": Y,
             "sin": np.sin, "cos": np.cos, "tan": np.tan,
             "asin": np.arcsin, "acos": np.arccos, "atan": np.arctan,
@@ -73,42 +134,29 @@ class Plot:
             "pi": np.pi, "e": np.e
         }
 
-        with np.errstate(all='ignore'):
-            try:
-                Z = eval(equation, {"__builtins__": None}, eval_env)
-                if isinstance(Z, (int, float)):
-                    Z = np.full(X.shape, Z, dtype=np.float64)
-                signs = np.sign(Z)
-                signs[~np.isfinite(Z)] = 10.0
-            except Exception:
-                signs = np.full(X.shape, 10.0)
+    def _eval_expression(self, expression:str, eval_env:dict, shape:tuple, is_inequality:bool):
+        try:
+            Z = eval(expression, {"__builtins__": None}, eval_env)
+            if isinstance(Z, bool):
+                return np.full(shape, float(Z), dtype=np.float64) if not is_inequality else np.full(shape, Z, dtype=bool)
+            if isinstance(Z, (int, float, np.integer, np.floating)):
+                return np.full(shape, float(Z), dtype=np.float64)
+            if isinstance(Z, np.ndarray) and Z.dtype == bool:
+                return Z.astype(bool) if is_inequality else Z.astype(np.float64)
+            return Z
+        except Exception:
+            return np.full(shape, False, dtype=bool) if is_inequality else np.full(shape, 10.0, dtype=np.float64)
 
-            try:
-                D = eval(domain, {"__builtins__": None}, eval_env)
-                if isinstance(D, bool):
-                    D = np.full(X.shape, D, dtype=bool)
-                elif isinstance(D, (int, float)):
-                    D = np.full(X.shape, bool(D), dtype=bool)
-                else:
-                    D = D.astype(bool)
-            except Exception:
-                D = np.zeros(X.shape, dtype=bool)
-
-        right = signs[2:, 1:-1]
-        left = signs[:-2, 1:-1]
-        top = signs[1:-1, 2:]
-        bottom = signs[1:-1, :-2]
-        s = right + left + top + bottom
-
-        defined = D[1:-1, 1:-1]
-        
-        mask = (np.abs(s) < 3) & defined
-        
-        img_mask = mask[:, ::-1].T
-        self.img[img_mask] = final_color
-    
-        if index!=None:
-            self.draw_text(index=index)
+    def _eval_domain(self, domain:str, eval_env:dict, shape:tuple):
+        try:
+            D = eval(domain, {"__builtins__": None}, eval_env)
+            if isinstance(D, bool):
+                return np.full(shape, D, dtype=bool)
+            if isinstance(D, (int, float, np.integer, np.floating)):
+                return np.full(shape, bool(D), dtype=bool)
+            return D.astype(bool)
+        except Exception:
+            return np.zeros(shape, dtype=bool)
 
 
     def draw_text(self, index:int=1):
@@ -215,27 +263,6 @@ class Graph:
                 center=self.center))
             
         return plots
-
-
-    def draw_plots_mp(self, plots:list[Plot], write_text:bool=True):
-        for file in os.listdir(PLOTS_DIR):
-            os.remove(os.path.join(PLOTS_DIR, file))
-
-        processes = []
-        for i,p in enumerate(plots):
-            process = multiprocessing.Process(target=draw_process, args=(p.equation, p.color, p.size, p.zoom, p.domain, i, write_text, self.center))
-            while len(multiprocessing.active_children()) > multiprocessing.cpu_count(): pass #so the pc wont be overloaded with processes
-            process.start()
-            processes.append(process)
-
-        for p in processes:
-            p.join()
-        
-        for i,p in enumerate(plots):
-            file_path = os.path.join(PLOTS_DIR, f"{i}.png")
-            pil_img = Image.open(file_path).convert("RGBA")
-            p.img = np.array(pil_img)[:, :, [2, 1, 0, 3]]
-            self.overlay_plot(p)
             
             
     def draw_plots_mt(self, plots:list[Plot], write_text:bool=True):
@@ -270,20 +297,6 @@ class Graph:
         plot = Plot(equation, color, self.size, self.zoom, domain, center=self.center)
         plot.draw()
         self.overlay_plot(plot)
-
-     
-    def point(self, px, py, color=None, r=5):
-        if not color:
-            color = self.default_color
-
-        circle=lambda x,y: (x-px)**2 + (y-py)**2 - (r/self.zoom)**2
-        
-        _px = round(px*self.zoom)
-        _py = round(py*self.zoom)
-        for x in range(_px-r, _px+r +1):
-            for y in range(_py-r, _py+r +1):
-                if circle(x/self.zoom, y/self.zoom)<0 and (x<=self.size and y<=self.size and x>=-self.size and y>=-self.size):
-                    self.set_color(x,y, color)
     
 
     def show(self):
@@ -298,11 +311,6 @@ class Graph:
         pil_img.save(filename)
 
 
-
-def draw_process(equation:str, color:tuple[int,int,int], size:int, zoom:float, domain:str, index:int, write_text:bool, center:tuple[float,float]):
-    p = Plot(equation=equation, color=color, size=size, zoom=zoom, domain=domain, center=center)
-    p.draw(index=index) if write_text else p.draw()
-    p.save(os.path.join(PLOTS_DIR, f"{index}.png"))
 
 
 def fix_text(text:str):
