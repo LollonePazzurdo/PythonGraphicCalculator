@@ -98,6 +98,14 @@ cython_debug/
 # VS Code
 .vscode/
 
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+venv.bak/
+*.venv
+
 # macOS
 .DS_Store
 
